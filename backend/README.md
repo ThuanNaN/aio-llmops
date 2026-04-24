@@ -1,36 +1,56 @@
 # LLM Backend Service
 
-A FastAPI application that provides structured API endpoints for interacting with LLM models through LangChain.
+A FastAPI gateway that routes math and medical requests across multi-LoRA vLLM and TensorRT-LLM backends using LangChain.
+
+The medical QA flow is aligned to the Vietnamese free-form QA dataset `hungnm/vietnamese-medical-qa`, so it accepts open-ended questions instead of answer choices.
+
+The default distributed deployment in this repo points the gateway to vLLM on `192.168.1.101:8000` and TensorRT-LLM on `192.168.1.102:8000`.
 
 ## Features
 
-- **Sentiment Analysis**: Analyzes text sentiment using the VSF-LORA model
-- **Medical QA**: Answers medical multiple-choice questions using the MEDQA-LORA model
-- **Instrumentation**: Prometheus metrics for monitoring
-- **Tracing**: LangSmith integration for LLM observability
+- **LLM Classification**: An LLM classifier selects the best route for each incoming chat request
+- **Math QA**: Routes math workloads to TensorRT-LLM by default
+- **Medical QA**: Routes medical workloads to multi-LoRA vLLM
+- **Shared Exact-Match Cache**: Redis-backed caching for classifier decisions and repeated routed responses
+- **Route Overrides**: Supports explicit route selection for backend comparison and debugging
+- **Instrumentation**: Gateway counters and latency histograms exposed to Prometheus
+- **Tracing and Evaluation**: LangSmith integration for request traces and evaluation datasets
 
 ## Architecture
 
 The service follows a clean, modular architecture:
 
 - **API Layer**: FastAPI routes for each capability
-- **LLM Integration**: LangChain for LLM orchestration
+- **LLM Integration**: LangChain for LLM orchestration and route classification
+- **Routing Config**: YAML-driven route and provider selection
+- **Caching**: Shared Redis cache for exact-match classifier and response reuse
 - **Prompting**: Structured templates for consistent model outputs
-- **Output Parsing**: Custom parsers to extract relevant information
+- **Observability**: LangSmith traces plus Prometheus metrics
 
 ## API Endpoints
 
 - `GET /`: Welcome message
 - `GET /health`: Health check endpoint
-- `POST /v1/sentiment`: Analyze sentiment of input text
-- `POST /v1/medical-qa`: Answer medical multiple-choice questions
+- `POST /v1/chat`: Routed chat endpoint with optional route override
+- `POST /v1/math-qa`: Force the math route
+- `POST /v1/medical-qa`: Answer free-form Vietnamese medical questions with optional context
+- `GET /metrics`: Prometheus metrics endpoint
 
 ## Environment Variables
 
 The service is configured using the following environment variables:
 
 - `OPENAI_API_KEY`: API key for the LLM service
-- `OPENAI_API_BASE_URL`: Base URL for the vLLM API
+- `VLLM_API_BASE_URL`: Base URL for the vLLM API
+- `TENSORRT_LLM_API_BASE_URL`: Base URL for the TensorRT-LLM API
+- `ROUTING_CONFIG_PATH`: Path to the YAML routing config
+- `REQUEST_TIMEOUT_SECONDS`: Timeout used for upstream model requests
+- `CACHE_ENABLED`: Enable or disable the gateway cache
+- `CACHE_REDIS_URL`: Redis connection string used for shared cache entries
+- `CACHE_NAMESPACE`: Manual cache-busting namespace for model or adapter rollouts
+- `CLASSIFIER_CACHE_ENABLED`: Cache classifier decisions when enabled
+- `RESPONSE_CACHE_ENABLED`: Cache final routed responses when enabled
+- `CACHE_SOCKET_TIMEOUT_SECONDS`: Redis socket timeout for cache operations
 - `LANGSMITH_TRACING`: Enable/disable LangSmith tracing
 - `LANGSMITH_API_KEY`: LangSmith API key for tracing
 - `LANGSMITH_PROJECT`: LangSmith project name
@@ -43,7 +63,7 @@ The service is configured using the following environment variables:
 docker compose up -d
 ```
 
-The API will be available at `http://localhost:8001`.
+This starts both the FastAPI gateway and a local Redis cache. The API will be available at `http://192.168.1.101:8001` in the default two-node deployment.
 
 ### Development Setup
 
@@ -58,5 +78,26 @@ The API will be available at `http://localhost:8001`.
 3. Run the development server:
 
    ```bash
-   uvicorn app.main:app --reload --host 0.0.0.0 --port 8001 --reload
+   uvicorn main:app --reload --host 0.0.0.0 --port 8001
    ```
+
+## Cache Operations
+
+The gateway uses exact-match Redis caching in two places:
+
+- Classifier decisions for repeated `/v1/chat` conversations
+- Final routed responses for repeated prompts and forced-route requests
+
+For multi-replica deployments, point every backend replica at the same Redis instance using `CACHE_REDIS_URL`.
+
+When LoRA weights, provider deployments, or model contents change without a route name change, bump `CACHE_NAMESPACE` and restart the gateway to invalidate old cache entries.
+
+Prometheus exposes cache counters through `llm_gateway_cache_operations_total` with `cache=classifier|response` and `result=hit|miss|store|error`.
+
+## Evaluation
+
+Run the LangSmith routing evaluation script after the gateway is up:
+
+```bash
+python evals/eval_sa.py
+```

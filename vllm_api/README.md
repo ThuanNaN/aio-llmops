@@ -1,11 +1,13 @@
 # Serving LLMs with vLLM
 
-This component provides high-performance inference for Llama 3.2 1B models using vLLM with LoRA adapters.
+This component provides multi-LoRA inference for Llama 3.2 1B using vLLM and exposes the base model as the gateway classifier.
+
+In the default distributed deployment, this service runs on `192.168.1.101`.
 
 ## Features
 
-- **Base Model**: Serves Meta's Llama 3.2 1B Instruct model
-- **LoRA Adapters**: Dynamically loads domain-specific fine-tuned adapters
+- **Base Model**: Serves `meta-llama/Llama-3.2-1B-Instruct` as `routing-classifier`
+- **LoRA Adapters**: Dynamically downloads and loads math and medical LoRA adapters from Hugging Face
 - **OpenAI-compatible API**: Compatible with standard OpenAI client libraries
 - **High Performance**: Optimized inference with continuous batching
 - **Metrics**: Prometheus integration for comprehensive monitoring
@@ -23,14 +25,18 @@ The service uses vLLM to provide efficient inference with:
 
 The service loads the following adapters at startup:
 
-1. **MedQA Adapter**: Fine-tuned for medical multiple-choice questions
-2. **VSF Adapter**: Fine-tuned for Vietnamese sentiment analysis
+1. **MathQA Adapter**: `VLAI-AIVN/Llama-3.2-1B-Instruct-mathqa-lora`
+2. **VI-Medical-QA Adapter**: `VLAI-AIVN/Llama-3.2-1B-Instruct-vi-medqa-lora`, used for free-form Vietnamese medical QA aligned to `hungnm/vietnamese-medical-qa`
 
 ## Environment Variables
 
 Configure the service with:
 
 - `VLLM_API_KEY`: API key for authorization
+- `VLLM_BASE_MODEL`: Base model served by vLLM
+- `VLLM_SERVED_MODEL_NAME`: Alias exposed for the classifier model
+- `VLLM_MATH_LORA_REPO`: Hugging Face repository for the math LoRA adapter
+- `VLLM_MEDICAL_LORA_REPO`: Hugging Face repository for the medical LoRA adapter
 - `VLLM_ALLOW_RUNTIME_LORA_UPDATING`: Enable/disable runtime LoRA updates
 
 ## Running the Service
@@ -43,8 +49,10 @@ docker compose up -d
 
 The vLLM API will be available at `http://localhost:8000`.
 
+In the default two-node setup, expose it on `http://192.168.1.101:8000`.
+
 ### Hardware Requirements
 
 - NVIDIA GPU with at least 12GB VRAM
-- CUDA 11.8 or higher
+- CUDA 13.0
 - At least 16GB system RAM

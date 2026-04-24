@@ -8,8 +8,16 @@ cd_safe() {
     fi
 }
 
+ensure_network() {
+    if ! docker network inspect aio-network &>/dev/null; then
+        echo "Creating aio-network..."
+        docker network create aio-network
+    fi
+}
+
 up_backend() {
     echo "Starting backend service..."
+    ensure_network
     cd_safe backend
     docker compose up -d
     echo "Backend service is up."
@@ -18,6 +26,7 @@ up_backend() {
 
 up_frontend() {
     echo "Starting frontend service..."
+    ensure_network
     cd_safe frontend
     docker compose up -d
     echo "Frontend service is up."
@@ -26,14 +35,25 @@ up_frontend() {
 
 up_vllm() {
     echo "Starting VLLM service..."
+    ensure_network
     cd_safe vllm_api
     docker compose up -d
     echo "VLLM service is up."
     cd_safe ..
 }
 
+up_trtllm() {
+    echo "Starting TensorRT-LLM service..."
+    ensure_network
+    cd_safe trtllm_api
+    docker compose up -d
+    echo "TensorRT-LLM service is up."
+    cd_safe ..
+}
+
 up_monitor() {
     echo "Starting monitoring services..."
+    ensure_network
     cd_safe monitor
     docker compose up -d
     echo "Monitoring services are up."
@@ -64,6 +84,14 @@ down_vllm() {
     cd_safe ..
 }
 
+down_trtllm() {
+    echo "Stopping TensorRT-LLM service..."
+    cd_safe trtllm_api
+    docker compose down
+    echo "TensorRT-LLM service is stopped."
+    cd_safe ..
+}
+
 down_monitor() {
     echo "Stopping monitoring services..."
     cd_safe monitor
@@ -73,25 +101,37 @@ down_monitor() {
 }
 
 up_services() {
-    # Create network if it doesn't exist
-    if ! docker network inspect aio-network &>/dev/null; then
-        echo "Creating aio-network..."
-        docker network create aio-network
-    fi
-    
     # Start services in proper order
     up_monitor
     up_vllm
+    up_trtllm
     up_backend
     up_frontend
     
     echo "All services are up and running."
 }
 
+up_app_stack() {
+    up_monitor
+    up_backend
+    up_frontend
+
+    echo "Application stack is up."
+}
+
+down_app_stack() {
+    down_frontend
+    down_backend
+    down_monitor
+
+    echo "Application stack is stopped."
+}
+
 down_services() {
     # Stop services in reverse order
     down_frontend
     down_backend
+    down_trtllm
     down_vllm
     down_monitor
     
@@ -121,6 +161,11 @@ status_services() {
     cd_safe vllm_api
     docker compose ps
     cd_safe ..
+
+    echo "=== TensorRT-LLM Services ==="
+    cd_safe trtllm_api
+    docker compose ps
+    cd_safe ..
     
     echo "=== Monitoring Services ==="
     cd_safe monitor
@@ -131,11 +176,17 @@ status_services() {
 help() {
     echo "Usage: $0 {up|down|restart|status|help}"
     echo "Commands:"
-    echo "  up       Start all services"
-    echo "  down     Stop all services"
-    echo "  restart  Restart all services"
-    echo "  status   Show status of all services"
-    echo "  help     Show this help message"
+    echo "  up          Start all services on one machine"
+    echo "  down        Stop all services"
+    echo "  restart     Restart all services"
+    echo "  status      Show status of all services"
+    echo "  up-app      Start monitor, backend, and frontend"
+    echo "  down-app    Stop monitor, backend, and frontend"
+    echo "  up-vllm     Start only the vLLM node service"
+    echo "  down-vllm   Stop only the vLLM node service"
+    echo "  up-trtllm   Start only the TensorRT-LLM node service"
+    echo "  down-trtllm Stop only the TensorRT-LLM node service"
+    echo "  help        Show this help message"
 }
 
 # Main script logic
@@ -156,6 +207,24 @@ case "$1" in
         ;;
     status)
         status_services
+        ;;
+    up-app)
+        up_app_stack
+        ;;
+    down-app)
+        down_app_stack
+        ;;
+    up-vllm)
+        up_vllm
+        ;;
+    down-vllm)
+        down_vllm
+        ;;
+    up-trtllm)
+        up_trtllm
+        ;;
+    down-trtllm)
+        down_trtllm
         ;;
     help)
         help

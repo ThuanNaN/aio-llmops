@@ -9,10 +9,6 @@ services:
       - .env
     volumes:
       - open-webui:/app/backend/data
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
     networks:
       - aio-network
   
@@ -21,15 +17,11 @@ services:
     container_name: gradio-app
     restart: unless-stopped
     ports:
-      - "7861:7860"
+      - "7860:7860"
     env_file:
       - .env
     networks:
       - aio-network
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
 
 volumes:
   open-webui:

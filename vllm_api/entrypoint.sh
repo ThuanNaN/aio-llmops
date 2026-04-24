@@ -1,49 +1,44 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-# Find the Python executable
-PYTHON_CMD=$(which python3 2>/dev/null || which python 2>/dev/null)
+PYTHON_CMD=$(command -v python3 || command -v python)
+
 if [ -z "$PYTHON_CMD" ]; then
-    echo "Python executable not found! Please install Python."
-    exit 1
+  echo "Python executable not found."
+  exit 1
 fi
 
-echo "Using Python executable: $PYTHON_CMD"
+BASE_MODEL=${VLLM_BASE_MODEL:-meta-llama/Llama-3.2-1B-Instruct}
+SERVED_MODEL_NAME=${VLLM_SERVED_MODEL_NAME:-routing-classifier}
+PORT=${VLLM_PORT:-8000}
 
-# Start vllm in the background
-$PYTHON_CMD -m vllm.entrypoints.openai.api_server \
-  --model thuanan/Llama-3.2-1B-Instruct-Chat-sft \
-  --compilation-config {"cache_dir": "../cache"} \
-  --port 8000 \
-  --quantization bitsandbytes \
-  --enable-prefix-caching \
-  --swap-space 16 \
-  --gpu-memory-utilization 0.9 \
+echo "Starting vLLM with base model: $BASE_MODEL"
+
+"$PYTHON_CMD" -m vllm.entrypoints.openai.api_server \
+  --model "$BASE_MODEL" \
+  --served-model-name "$SERVED_MODEL_NAME" \
+  --port "$PORT" \
+  --api-key "$VLLM_API_KEY" \
+  --enable-lora \
+  --max-lora-rank "${VLLM_MAX_LORA_RANK:-64}" \
+  --max-model-len "${VLLM_MAX_MODEL_LEN:-8192}" \
+  --gpu-memory-utilization "${VLLM_GPU_MEMORY_UTILIZATION:-0.9}" \
+  --swap-space "${VLLM_SWAP_SPACE:-16}" \
   --disable-log-requests \
-  --enable-sleep-mode \
-  --max-model-len 8192 \
-  --enable-lora &
+  --enable-prefix-caching &
 
-# Store the PID of the background process
 VLLM_PID=$!
 
-# Function to check if the API is ready
 wait_for_api() {
-  echo "Waiting for vLLM API to be ready..."
-  while ! curl -s -H "Authorization: Bearer $VLLM_API_KEY" http://localhost:8000/v1/models > /dev/null; do
-    echo "API not ready yet, waiting..."
-    sleep 10
+  echo "Waiting for vLLM API to become ready..."
+  until curl -fsS -H "Authorization: Bearer $VLLM_API_KEY" "http://localhost:${PORT}/v1/models" >/dev/null; do
+    sleep 5
   done
-  echo "vLLM API is ready!"
 }
 
-# Wait for the API to be ready
 wait_for_api
 
-# Run the script to load lora adapters
-echo "Loading LoRA adapters..."
-export VLLM_API_KEY=$VLLM_API_KEY
-# bash /app/adapters.sh
+echo "Loading LoRA adapters into vLLM..."
+bash /app/adapters.sh
 
-# Wait for the vllm process
-wait $VLLM_PID
+wait "$VLLM_PID"

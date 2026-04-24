@@ -12,10 +12,6 @@ services:
     restart: unless-stopped
     ports:
       - "3100:3100"
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
     networks:
       - aio-network
 
@@ -29,10 +25,6 @@ services:
       - ./prometheus:/etc/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
     networks:
       - aio-network
 
@@ -47,10 +39,19 @@ services:
       - grafana-storage:/var/lib/grafana
     ports:
       - "3000:3000"
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
+    networks:
+      - aio-network
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: aivn-promtail
+    restart: unless-stopped
+    depends_on:
+      - loki
+    command: ["-config.file=/etc/promtail/config.yml"]
+    volumes:
+      - ./promtail/config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - aio-network
 

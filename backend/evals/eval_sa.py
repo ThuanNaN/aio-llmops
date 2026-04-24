@@ -1,75 +1,87 @@
+import os
+import requests
 from dotenv import load_dotenv
 from langsmith import Client
+
+
 load_dotenv()
 
 client = Client()
 
+DATASET_NAME = os.getenv("LANGSMITH_ROUTING_DATASET", "LLM Gateway Routing Dataset")
+BACKEND_URL = os.getenv("BACKEND_EVAL_URL", "http://0.0.0.0:8001/v1/chat")
+API_KEY = os.getenv("OPENAI_API_KEY", "aio2025")
 
-# Define dataset: these are your test cases
-dataset_name = "Sentiment Analysis Dataset"
-dataset = client.create_dataset(dataset_name)
-client.create_examples(
-    dataset_id=dataset.id,
-    examples=[
-        {
-            "inputs": {"text": "slide up đầy đủ trước mỗi buổi học ."},
-            "outputs": {"sentiment": "positive"},
+EXAMPLES = [
+    {
+        "inputs": {
+            "messages": [{"role": "user", "content": "Solve 17 * 24 and explain briefly."}],
         },
-        {
-            "inputs": {"text": "lượng kiến thức quá nhiều trong một học kỳ ."},
-            "outputs": {"sentiment": "negative"},
+        "outputs": {"route": "math_qa"},
+    },
+    {
+        "inputs": {
+            "messages": [{"role": "user", "content": "Tamoxifen is primarily used in the treatment of which condition?"}],
         },
-        {
-            "inputs": {"text": "hy vọng học kỳ sau có thể học được với cô ."},
-            "outputs": {"sentiment": "positive"},
+        "outputs": {"route": "medical_qa"},
+    },
+    {
+        "inputs": {
+            "messages": [{"role": "user", "content": "What is the derivative of x^3 + 4x?"}],
         },
-        {
-            "inputs": {"text": "hay , nhiệt tình , dễ hiểu ."},
-            "outputs": {"sentiment": "positive"},
+        "outputs": {"route": "math_qa"},
+    },
+    {
+        "inputs": {
+            "messages": [{"role": "user", "content": "Which cranial nerve carries parasympathetic fibers to the parotid gland?"}],
         },
-        {
-            "inputs": {"text": "phản hồi giải đáp thắc mắc cho sinh viên ."},
-            "outputs": {"sentiment": "positive"},
-        },
-    ]
-)
-
-def correctness(inputs: dict, outputs: dict, reference_outputs: dict) -> bool:
-    """Check if the model outputs are correct (i.e., match the reference outputs)."""
-
-    for output, reference_output in zip(outputs.values(), reference_outputs.values()):
-        if output != reference_output:
-            return False
-    return True
+        "outputs": {"route": "medical_qa"},
+    },
+]
 
 
-def concision(outputs: dict, reference_outputs: dict) -> bool:
-    """Check if all model outputs are concise (i.e., exactly one word: positive, negative)."""
+def get_or_create_dataset(dataset_name: str):
+    try:
+        return client.read_dataset(dataset_name=dataset_name)
+    except Exception:
+        dataset = client.create_dataset(
+            dataset_name=dataset_name,
+            description="Math and medical routing evaluation dataset for the FastAPI gateway.",
+        )
+        client.create_examples(dataset_id=dataset.id, examples=EXAMPLES)
+        return dataset
 
-    allowed_responses = {"positive", "negative"}
-    
-    for output in outputs.values():
-        output = output.strip().lower()
-        if output not in allowed_responses:
-            return False
-    return True
+
+dataset = get_or_create_dataset(DATASET_NAME)
 
 
-def my_app(text: str) -> str:
-    import requests
-    url = f"http://0.0.0.0:8001/v1/sentiment"
-    headers = {"Authorization": f"Bearer aio2025", "Content-Type": "application/json"}
-    payload = {"text": text} 
-    response = requests.post(url, headers=headers, json=payload)
-    return response.json()["content"]
+def route_correctness(inputs: dict, outputs: dict, reference_outputs: dict) -> bool:
+    return outputs.get("route") == reference_outputs.get("route")
+
+
+def non_empty_answer(outputs: dict, reference_outputs: dict | None = None) -> bool:
+    return bool(outputs.get("content", "").strip())
+
+
+def my_app(messages: list[dict[str, str]]) -> dict:
+    response = requests.post(
+        BACKEND_URL,
+        headers={"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"},
+        json={"messages": messages},
+        timeout=120,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    return {"content": payload["content"], "route": payload["route"]}
+
 
 def ls_target(inputs: dict) -> dict:
-    return {"response": my_app(inputs["text"])}
+    return my_app(inputs["messages"])
 
 
 experiment_results = client.evaluate(
-    ls_target, 
-    data=dataset_name, 
-    evaluators=[concision, correctness],
-    experiment_prefix="Llama-3.2-1B-Instruct-Sentiment",
+    ls_target,
+    data=dataset.name,
+    evaluators=[route_correctness, non_empty_answer],
+    experiment_prefix="llm-gateway-routing",
 )

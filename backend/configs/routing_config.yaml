@@ -1,0 +1,52 @@
+default_route: medical_qa
+
+providers:
+  vllm:
+    api_base: ${VLLM_API_BASE_URL}
+    api_key: ${OPENAI_API_KEY}
+    temperature: 0
+    max_tokens: 256
+  trtllm:
+    api_base: ${TENSORRT_LLM_API_BASE_URL}
+    api_key: ${OPENAI_API_KEY}
+    temperature: 0
+    max_tokens: 256
+
+classifier:
+  provider: vllm
+  model: routing-classifier
+  instructions: |
+    You are the routing classifier for an LLM gateway.
+    Read the incoming conversation and choose the single best route.
+    Use `math_qa` for arithmetic, algebra, equations, geometry, reasoning over quantities, or requests to solve math problems.
+    Use `medical_qa` for medicine, anatomy, pathology, pharmacology, diagnosis, treatment, symptoms, prescriptions, or Vietnamese medical question answering.
+    Return only structured output that matches the requested JSON schema.
+  temperature: 0
+  max_tokens: 64
+
+routes:
+  math_qa:
+    provider: trtllm
+    model: mathqa-lora
+    description: Solve math questions, equations, and reasoning-heavy quantitative prompts.
+    system_prompt: |
+      You are a concise mathematics assistant. Solve the problem carefully and provide the final answer first.
+    temperature: 0
+    max_tokens: 256
+  math_qa_vllm:
+    provider: vllm
+    model: mathqa-lora
+    description: Manual override route for the vLLM-served math LoRA adapter.
+    system_prompt: |
+      You are a concise mathematics assistant. Solve the problem carefully and provide the final answer first.
+    temperature: 0
+    max_tokens: 256
+    classifier_enabled: false
+  medical_qa:
+    provider: vllm
+    model: vi-medqa-lora
+    description: Answer Vietnamese and English medical questions in free-form question answering style.
+    system_prompt: |
+      You are a medical question answering assistant. Provide a direct, clinically grounded answer and keep the explanation concise.
+    temperature: 0
+    max_tokens: 256

@@ -1,9 +1,9 @@
 services:
-  vllm:
+  trtllm:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: vllm
+    container_name: trtllm
     restart: unless-stopped
     env_file:
       - .env
@@ -11,11 +11,10 @@ services:
       - "8000:8000"
     volumes:
       - ~/.cache/huggingface:/root/.cache/huggingface
-      - ~/.cache/vllm:/root/.cache/vllm
     networks:
       - aio-network
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS -H \"Authorization: Bearer ${VLLM_API_KEY}\" http://localhost:8000/v1/models >/dev/null"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 10
@@ -23,7 +22,7 @@ services:
       resources:
         reservations:
           devices:
-            - capabilities: [gpu] 
+            - capabilities: [gpu]
 
 networks:
   aio-network:

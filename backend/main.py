@@ -1,8 +1,8 @@
 from prometheus_fastapi_instrumentator import Instrumentator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.config import get_settings
-from app.api import router
+from core.config import get_settings
+from api import router
 
 settings = get_settings()
 app = FastAPI(title=settings.app_title, 

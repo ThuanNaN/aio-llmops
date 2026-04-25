@@ -2,7 +2,6 @@ services:
   backend:
     build:
       context: .
-      dockerfile: deployments/docker/Dockerfile.api
     image: llm-backend:latest
     container_name: llm-backend
     restart: unless-stopped

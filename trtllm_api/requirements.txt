@@ -2,4 +2,3 @@ fastapi==0.115.12
 uvicorn==0.34.2
 prometheus-client==0.21.1
 pydantic==2.11.4
-tensorrt_llm

@@ -53,17 +53,18 @@ def build_prompt(messages: list[ChatMessage]) -> str:
 def extract_text(result) -> str:
     if isinstance(result, str):
         return result
+    # Unwrap a list to its first element
     if isinstance(result, list) and result:
-        first = result[0]
-        outputs = getattr(first, "outputs", None)
-        if outputs:
-            generated = outputs[0]
-            text = getattr(generated, "text", None)
-            if text is not None:
-                return text
-        text = getattr(first, "text", None)
+        result = result[0]
+    # Handle a single RequestOutput (or similar object with .outputs)
+    outputs = getattr(result, "outputs", None)
+    if outputs:
+        text = getattr(outputs[0], "text", None)
         if text is not None:
             return text
+    text = getattr(result, "text", None)
+    if text is not None:
+        return text
     return str(result)
 
 

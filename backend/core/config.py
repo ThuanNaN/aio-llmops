@@ -15,9 +15,9 @@ class Settings(BaseSettings):
     )
 
     openai_api_key: str = Field(default="aio2025", alias="OPENAI_API_KEY")
-    vllm_api_base_url: str = Field(default="http://192.168.1.101:8000/v1", alias="VLLM_API_BASE_URL")
+    vllm_api_base_url: str = Field(default="http://127.0.0.1:8000/v1", alias="VLLM_API_BASE_URL")
     tensorrt_llm_api_base_url: str = Field(
-        default="http://192.168.1.102:8000/v1",
+        default="http://127.0.0.1:8002/v1",
         alias="TENSORRT_LLM_API_BASE_URL",
     )
     routing_config_path: str = Field(

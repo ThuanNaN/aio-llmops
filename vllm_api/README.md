@@ -2,7 +2,7 @@
 
 This component provides multi-LoRA inference for Llama 3.2 1B using vLLM and exposes the base model as the gateway classifier.
 
-In the default distributed deployment, this service runs on `192.168.1.101`.
+By default, this service runs on `localhost` and can be pinned to any GPU with `AIO_DEVICE_ID`.
 
 ## Features
 
@@ -33,11 +33,13 @@ The service loads the following adapters at startup:
 Configure the service with:
 
 - `VLLM_API_KEY`: API key for authorization
-- `VLLM_BASE_MODEL`: Base model served by vLLM
-- `VLLM_SERVED_MODEL_NAME`: Alias exposed for the classifier model
-- `VLLM_MATH_LORA_REPO`: Hugging Face repository for the math LoRA adapter
-- `VLLM_MEDICAL_LORA_REPO`: Hugging Face repository for the medical LoRA adapter
+- `AIO_BASE_MODEL`: Base model served by vLLM
+- `AIO_SERVED_MODEL_NAME`: Alias exposed for the classifier model
+- `AIO_MATH_LORA_REPO`: Hugging Face repository for the math LoRA adapter
+- `AIO_MEDICAL_LORA_REPO`: Hugging Face repository for the medical LoRA adapter
 - `VLLM_ALLOW_RUNTIME_LORA_UPDATING`: Enable/disable runtime LoRA updates
+- `VLLM_PORT`: Port exposed by the API server
+- `AIO_DEVICE_ID`: GPU device index to expose to the container
 
 ## Running the Service
 
@@ -49,7 +51,7 @@ docker compose up -d
 
 The vLLM API will be available at `http://localhost:8000`.
 
-In the default two-node setup, expose it on `http://192.168.1.101:8000`.
+For a split deployment, set `VLLM_PORT` and the backend's `VLLM_HOST` and `VLLM_PORT` to match the host where this service runs.
 
 ### Hardware Requirements
 

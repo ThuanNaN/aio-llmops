@@ -2,7 +2,7 @@
 
 A monitoring and logging stack for the routed LLM services using Prometheus, Grafana, Loki, and Promtail.
 
-The default configuration scrapes vLLM from `192.168.1.101:8000`, TensorRT-LLM from `192.168.1.102:8000`, and the backend from `192.168.1.101:8001`.
+The monitoring stack now reads `VLLM_HOST`, `VLLM_PORT`, `TRTLLM_HOST`, `TRTLLM_PORT`, `BACKEND_HOST`, and `BACKEND_PORT` from `monitor/.env` before generating the Prometheus scrape config.
 
 ## Components
 
@@ -63,9 +63,9 @@ Prometheus is configured to scrape metrics from:
 - TensorRT-LLM API
 - Backend API
 
-If your host IPs change, update `prometheus/prometheus.yml` and the corresponding `.env` files.
+If your topology changes, update `monitor/.env`. Prometheus renders its live scrape config from `prometheus/prometheus.yml` at container startup.
 
-The configuration is stored in `prometheus/prometheus.yml`.
+The template is stored in `prometheus/prometheus.yml`.
 
 ### Loki
 

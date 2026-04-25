@@ -14,12 +14,12 @@ An end-to-end LLMOps stack for routed math and medical question answering with m
 
 ## Deployment Layout
 
-- **192.168.1.101**: vLLM serving node with `24 GB` VRAM, plus the default backend, frontend, and monitoring stack in this repo configuration
-- **192.168.1.102**: TensorRT-LLM serving node for the math route
+- **Single host default**: vLLM on `GPU 0` at port `8000`, TensorRT-LLM on `GPU 1` at port `8002`, plus backend, frontend, and monitoring on the same machine
+- **Split host option**: Point the backend and monitoring stack at any `VLLM_HOST` and `TRTLLM_HOST` values, such as `PC1` (`3090`, `24 GB`) for vLLM plus router and `PC2` (`3060`, `12 GB`) for TensorRT-LLM
 
 ## Gateway Endpoints
 
-- `POST /v1/chat`: Routed chat with optional route override (`math_qa`, `math_qa_vllm`, `medical_qa`)
+- `POST /v1/chat`: Routed chat with optional route override (`math_qa`, `medical_qa`)
 - `POST /v1/math-qa`: Force the TensorRT-LLM math route
 - `POST /v1/medical-qa`: Force the vLLM medical route
 - `GET /metrics`: Gateway Prometheus metrics
@@ -40,44 +40,84 @@ An end-to-end LLMOps stack for routed math and medical question answering with m
    cp vllm_api/.env.example vllm_api/.env
    cp trtllm_api/.env.example trtllm_api/.env
    cp frontend/.env.example frontend/.env
+   cp monitor/.env.example monitor/.env
    ```
 
-3. Start the services on each machine:
+3. Choose the topology in the env files:
 
-   On `192.168.1.101`:
+   Single host example:
+
+   ```bash
+   # vllm_api/.env
+   VLLM_PORT="8000"
+   VLLM_DEVICE_ID="0"
+
+   # trtllm_api/.env
+   TRTLLM_PORT="8002"
+   TRTLLM_DEVICE_ID="1"
+
+   # backend/.env and monitor/.env
+   VLLM_HOST="127.0.0.1"
+   VLLM_PORT="8000"
+   TRTLLM_HOST="127.0.0.1"
+   TRTLLM_PORT="8002"
+   BACKEND_PORT="8001"
+   ```
+
+   Split host example:
+
+   ```bash
+   # PC1: vllm_api/.env
+   VLLM_PORT="8000"
+   VLLM_DEVICE_ID="0"
+
+   # PC2: trtllm_api/.env
+   TRTLLM_PORT="8000"
+   TRTLLM_DEVICE_ID="0"
+
+   # PC1: backend/.env and monitor/.env
+   VLLM_HOST="192.168.1.101"
+   VLLM_PORT="8000"
+   TRTLLM_HOST="192.168.1.102"
+   TRTLLM_PORT="8000"
+   BACKEND_PORT="8001"
+   ```
+
+4. Start the services on each machine:
+
+   For a single host:
+
+   ```bash
+   ./run.sh up
+   ```
+
+   For a split deployment, on the vLLM and router node:
 
    ```bash
    ./run.sh up-vllm
    ./run.sh up-app
    ```
 
-   On `192.168.1.102`:
+   On the TensorRT-LLM node:
 
    ```bash
    ./run.sh up-trtllm
    ```
 
-4. For single-machine development only, you can still start everything together:
-
-   ```bash
-   ./run.sh up
-   ```
-
 ## Accessing Services
 
-- **vLLM API**: `http://192.168.1.101:8000`
-- **TensorRT-LLM API**: `http://192.168.1.102:8000`
-- **FastAPI Gateway**: `http://192.168.1.101:8001`
-- **Gradio UI**: `http://192.168.1.101:7860`
-- **Open WebUI**: `http://192.168.1.101:8080`
-- **Grafana**: `http://192.168.1.101:3000`
-- **Prometheus**: `http://192.168.1.101:9090`
-- **Loki**: `http://192.168.1.101:3100`
+- **vLLM API**: `http://$VLLM_HOST:$VLLM_PORT`
+- **TensorRT-LLM API**: `http://$TRTLLM_HOST:$TRTLLM_PORT`
+- **FastAPI Gateway**: `http://$BACKEND_HOST:$BACKEND_PORT`
+- **Gradio UI**: `http://$BACKEND_HOST:$FRONTEND_PORT`
+- **Open WebUI**: `http://$BACKEND_HOST:$OPEN_WEBUI_PORT`
+- **Grafana**: `http://$BACKEND_HOST:3000`
+- **Prometheus**: `http://$BACKEND_HOST:9090`
+- **Loki**: `http://$BACKEND_HOST:3100`
 
 ## Route Overrides
 
 - `math_qa`: TensorRT-LLM math route
-- `math_qa_vllm`: vLLM math LoRA route for comparison/debugging
 - `medical_qa`: vLLM medical LoRA route
 
 ## Cache Strategy

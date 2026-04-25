@@ -31,9 +31,12 @@ The frontend communicates with the backend API to provide:
 
 Configure the service with:
 
-- `OPENAI_API_BASE_URL`: URL of the vLLM service, defaulting to `http://192.168.1.101:8000/v1`
-- `BACKEND_API_URL`: URL of the backend API service
+- `BACKEND_API_URL`: Full URL of the backend API service
+- `BACKEND_HOST`: Hostname or IP of the backend API when `BACKEND_API_URL` is omitted
+- `BACKEND_PORT`: Port of the backend API when `BACKEND_API_URL` is omitted
 - `OPENAI_API_KEY`: API key for authorization
+- `FRONTEND_PORT`: Port exposed by the Gradio UI
+- `OPEN_WEBUI_PORT`: Host port exposed for Open WebUI
 
 ## Running the Service
 
@@ -43,7 +46,7 @@ Configure the service with:
 docker compose up -d
 ```
 
-The Gradio interface will be available at `http://192.168.1.101:7860` in the default two-node deployment.
+The Gradio interface will be available at `http://localhost:${FRONTEND_PORT}`.
 
 ### Development Setup
 

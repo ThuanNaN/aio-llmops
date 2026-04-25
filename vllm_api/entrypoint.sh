@@ -8,8 +8,8 @@ if [ -z "$PYTHON_CMD" ]; then
   exit 1
 fi
 
-BASE_MODEL=${VLLM_BASE_MODEL:-meta-llama/Llama-3.2-1B-Instruct}
-SERVED_MODEL_NAME=${VLLM_SERVED_MODEL_NAME:-routing-classifier}
+BASE_MODEL=${AIO_BASE_MODEL:-meta-llama/Llama-3.2-1B-Instruct}
+SERVED_MODEL_NAME=${AIO_SERVED_MODEL_NAME:-routing-classifier}
 PORT=${VLLM_PORT:-8000}
 
 echo "Starting vLLM with base model: $BASE_MODEL"
@@ -20,12 +20,12 @@ echo "Starting vLLM with base model: $BASE_MODEL"
   --port "$PORT" \
   --api-key "$VLLM_API_KEY" \
   --enable-lora \
-  --max-lora-rank "${VLLM_MAX_LORA_RANK:-64}" \
-  --max-model-len "${VLLM_MAX_MODEL_LEN:-8192}" \
-  --gpu-memory-utilization "${VLLM_GPU_MEMORY_UTILIZATION:-0.9}" \
-  --swap-space "${VLLM_SWAP_SPACE:-16}" \
-  --disable-log-requests \
-  --enable-prefix-caching &
+  --max-lora-rank 16 \
+  --max-model-len 8192 \
+  --gpu-memory-utilization 0.9 \
+  --enable-prefix-caching \
+  --max-loras 8 \
+  --max-cpu-loras 16 &
 
 VLLM_PID=$!
 

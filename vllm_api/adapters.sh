@@ -25,5 +25,5 @@ load_adapter() {
         -d '{"lora_name":"'"$alias"'","lora_path":"'"$adapter_path"'"}'
 }
 
-load_adapter "mathqa-lora" "${VLLM_MATH_LORA_REPO:-VLAI-AIVN/Llama-3.2-1B-Instruct-mathqa-lora}"
-load_adapter "vi-medqa-lora" "${VLLM_MEDICAL_LORA_REPO:-VLAI-AIVN/Llama-3.2-1B-Instruct-vi-medqa-lora}"
+load_adapter "mathqa-lora" "${AIO_MATH_LORA_REPO:-VLAI-AIVN/Llama-3.2-1B-Instruct-mathqa-lora}"
+load_adapter "vi-medqa-lora" "${AIO_MEDICAL_LORA_REPO:-VLAI-AIVN/Llama-3.2-1B-Instruct-vi-medqa-lora}"

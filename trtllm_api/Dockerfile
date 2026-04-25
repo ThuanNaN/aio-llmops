@@ -1,4 +1,4 @@
-FROM nvcr.io/nvidia/pytorch:24.08-py3
+FROM nvcr.io/nvidia/tensorrt-llm/release:1.2.1
 
 WORKDIR /app
 

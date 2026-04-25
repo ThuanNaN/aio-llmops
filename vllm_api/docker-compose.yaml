@@ -7,15 +7,19 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      CUDA_VISIBLE_DEVICES: ${AIO_DEVICE_ID:-0}
+      NVIDIA_VISIBLE_DEVICES: ${AIO_DEVICE_ID:-0}
+      VLLM_ALLOW_RUNTIME_LORA_UPDATING: "True"
     ports:
-      - "8000:8000"
+      - "${VLLM_PORT:-8000}:${VLLM_PORT:-8000}"
     volumes:
       - ~/.cache/huggingface:/root/.cache/huggingface
       - ~/.cache/vllm:/root/.cache/vllm
     networks:
       - aio-network
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS -H \"Authorization: Bearer ${VLLM_API_KEY}\" http://localhost:8000/v1/models >/dev/null"]
+      test: ["CMD-SHELL", "curl -fsS -H \"Authorization: Bearer ${VLLM_API_KEY}\" http://localhost:${VLLM_PORT:-8000}/v1/models >/dev/null"]
       interval: 30s
       timeout: 10s
       retries: 10

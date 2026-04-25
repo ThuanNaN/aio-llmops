@@ -7,9 +7,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configure API settings
-API_BASE_URL = os.getenv("BACKEND_API_URL", None)
+BACKEND_HOST = os.getenv("BACKEND_HOST")
+BACKEND_PORT = os.getenv("BACKEND_PORT", "8001")
+API_BASE_URL = os.getenv("BACKEND_API_URL")
 API_KEY = os.getenv("OPENAI_API_KEY", None)
-ROUTE_OPTIONS = ["auto", "math_qa", "math_qa_vllm", "medical_qa"]
+ROUTE_OPTIONS = ["auto", "chat", "math_qa", "medical_qa"]
+
+if API_BASE_URL is None and BACKEND_HOST:
+    API_BASE_URL = f"http://{BACKEND_HOST}:{BACKEND_PORT}/v1"
 
 if API_BASE_URL is None or API_KEY is None:
     raise ValueError("API_BASE_URL and API_KEY must be set in the environment variables.")
@@ -78,7 +83,7 @@ def answer_medical_question(question, context):
 
 with gr.Blocks() as routed_chat_tab:
     gr.Markdown("# Routed Chat")
-    gr.Markdown("Send a prompt to the FastAPI gateway and let the classifier choose between TensorRT-LLM math serving and multi-LoRA vLLM medical serving.")
+    gr.Markdown("Send a prompt to the FastAPI gateway and let the classifier intelligently route to: TensorRT-LLM chat, vLLM math QA, or vLLM medical QA.")
 
     route_input = gr.Dropdown(ROUTE_OPTIONS, value="auto", label="Route Override")
     prompt_input = gr.Textbox(label="Prompt", placeholder="Ask a math or medical question...", lines=5)
@@ -96,7 +101,9 @@ with gr.Blocks() as routed_chat_tab:
         [
             ["Solve 12 * 18 and explain briefly.", "auto"],
             ["A patient with hyperthyroidism presents with weight loss and tremor. What is the likely diagnosis?", "auto"],
-            ["Integrate x^2 + 3x.", "math_qa_vllm"],
+            ["Integrate x^2 + 3x.", "math_qa"],
+            ["Hello, how can you help me today?", "chat"],
+            ["What are the common symptoms of diabetes?", "medical_qa"],
         ],
         inputs=[prompt_input, route_input],
         outputs=[routed_output, routed_metadata],
@@ -106,7 +113,7 @@ with gr.Blocks() as routed_chat_tab:
 
 with gr.Blocks() as math_qa_tab:
     gr.Markdown("# Math QA")
-    gr.Markdown("This tab pins requests to the TensorRT-LLM math route.")
+    gr.Markdown("This tab pins requests to the vLLM math route (powered by LoRA adapter).")
 
     math_input = gr.Textbox(label="Math Question", placeholder="Enter a math question...", lines=4)
     math_button = gr.Button("Solve Math Question")
@@ -170,4 +177,4 @@ demo = gr.TabbedInterface(
 )
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=7860)
+    demo.launch(server_name="0.0.0.0", server_port=int(os.getenv("FRONTEND_PORT", "7860")))

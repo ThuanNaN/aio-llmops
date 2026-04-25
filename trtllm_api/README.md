@@ -2,7 +2,7 @@
 
 This service exposes an OpenAI-compatible chat completions API backed by TensorRT-LLM for the math LoRA model.
 
-In the default distributed deployment, this service runs on `192.168.1.102` and is exposed on port `8000`.
+By default, this service runs on `localhost` and is exposed on port `8002` so it can coexist with vLLM on the same machine.
 
 ## Model
 
@@ -18,5 +18,7 @@ In the default distributed deployment, this service runs on `192.168.1.102` and 
 ## Notes
 
 - The container expects GPU access.
+- Use `TRTLLM_DEVICE_ID` to choose which GPU is exposed to the container.
+- Use `TRTLLM_PORT` to change the listening port for single-host or multi-host layouts.
 - The TensorRT-LLM Python runtime is installed during image build.
 - The FastAPI gateway routes math workloads to this service by default.

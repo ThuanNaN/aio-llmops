@@ -60,6 +60,46 @@ up_monitor() {
     cd_safe ..
 }
 
+build_backend() {
+    echo "Building backend service..."
+    cd_safe backend
+    docker compose build
+    echo "Backend service is built."
+    cd_safe ..
+}
+
+build_frontend() {
+    echo "Building frontend service..."
+    cd_safe frontend
+    docker compose build
+    echo "Frontend service is built."
+    cd_safe ..
+}
+
+build_vllm() {
+    echo "Building VLLM service..."
+    cd_safe vllm_api
+    docker compose build
+    echo "VLLM service is built."
+    cd_safe ..
+}
+
+build_trtllm() {
+    echo "Building TensorRT-LLM service..."
+    cd_safe trtllm_api
+    docker compose build
+    echo "TensorRT-LLM service is built."
+    cd_safe ..
+}
+
+build_monitor() {
+    echo "Building monitoring services..."
+    cd_safe monitor
+    docker compose build
+    echo "Monitoring services are built."
+    cd_safe ..
+}
+
 down_backend() {
     echo "Stopping backend service..."
     cd_safe backend
@@ -109,6 +149,23 @@ up_services() {
     up_frontend
     
     echo "All services are up and running."
+}
+
+build_services() {
+    # Build services in proper order
+    build_monitor
+    build_vllm
+    build_trtllm
+    build_backend
+    build_frontend
+
+    echo "All services are built."
+}
+
+build_up_services() {
+    echo "Building and starting all services..."
+    build_services
+    up_services
 }
 
 up_app_stack() {
@@ -174,9 +231,12 @@ status_services() {
 }
 
 help() {
-    echo "Usage: $0 {up|down|restart|status|help}"
+    echo "Usage: $0 {up|up-all|build|build-up|down|restart|status|help}"
     echo "Commands:"
     echo "  up          Start all services on one machine"
+    echo "  up-all      Alias for up"
+    echo "  build       Build all services"
+    echo "  build-up    Build all services and then start them"
     echo "  down        Stop all services"
     echo "  restart     Restart all services"
     echo "  status      Show status of all services"
@@ -198,6 +258,15 @@ fi
 case "$1" in
     up)
         up_services
+        ;;
+    up-all)
+        up_services
+        ;;
+    build)
+        build_services
+        ;;
+    build-up)
+        build_up_services
         ;;
     down)
         down_services

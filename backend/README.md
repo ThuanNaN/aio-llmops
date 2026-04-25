@@ -4,7 +4,7 @@ A FastAPI gateway that routes math and medical requests across multi-LoRA vLLM a
 
 The medical QA flow is aligned to the Vietnamese free-form QA dataset `hungnm/vietnamese-medical-qa`, so it accepts open-ended questions instead of answer choices.
 
-The default distributed deployment in this repo points the gateway to vLLM on `192.168.1.101:8000` and TensorRT-LLM on `192.168.1.102:8000`.
+The default config now targets local ports so the repo can run on one host with vLLM on `8000` and TensorRT-LLM on `8002`, or on separate hosts by changing `VLLM_HOST` and `TRTLLM_HOST`.
 
 ## Features
 
@@ -41,8 +41,11 @@ The service follows a clean, modular architecture:
 The service is configured using the following environment variables:
 
 - `OPENAI_API_KEY`: API key for the LLM service
-- `VLLM_API_BASE_URL`: Base URL for the vLLM API
-- `TENSORRT_LLM_API_BASE_URL`: Base URL for the TensorRT-LLM API
+- `VLLM_HOST`: Hostname or IP address for the vLLM API
+- `VLLM_PORT`: Port exposed by the vLLM API
+- `TRTLLM_HOST`: Hostname or IP address for the TensorRT-LLM API
+- `TRTLLM_PORT`: Port exposed by the TensorRT-LLM API
+- `BACKEND_PORT`: Port exposed by the FastAPI gateway itself
 - `ROUTING_CONFIG_PATH`: Path to the YAML routing config
 - `REQUEST_TIMEOUT_SECONDS`: Timeout used for upstream model requests
 - `CACHE_ENABLED`: Enable or disable the gateway cache
@@ -63,7 +66,7 @@ The service is configured using the following environment variables:
 docker compose up -d
 ```
 
-This starts both the FastAPI gateway and a local Redis cache. The API will be available at `http://192.168.1.101:8001` in the default two-node deployment.
+This starts both the FastAPI gateway and a local Redis cache. The API will be available at `http://localhost:${BACKEND_PORT}`.
 
 ### Development Setup
 

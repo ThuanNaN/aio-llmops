@@ -1,23 +1,40 @@
 services:
   backend:
-    build: 
+    build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: deployments/docker/Dockerfile.api
+    image: llm-backend:latest
     container_name: llm-backend
     restart: unless-stopped
+    depends_on:
+      - redis
+    command: ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${BACKEND_PORT:-8001}"]
     ports:
-      - "8001:8001"
+      - "${BACKEND_PORT:-8001}:${BACKEND_PORT:-8001}"
     env_file:
       - .env
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
-        loki-batch-size: "400"
+    environment:
+      CACHE_ENABLED: ${CACHE_ENABLED:-true}
+      CACHE_REDIS_URL: ${CACHE_REDIS_URL:-redis://backend-cache:6379/0}
     networks:
       - aio-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:${BACKEND_PORT:-8001}/health >/dev/null"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: backend-cache
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    networks:
+      - aio-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -25,3 +42,6 @@ services:
 networks:
   aio-network:
     external: true
+
+volumes:
+  redis-data:

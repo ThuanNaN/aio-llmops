@@ -5,17 +5,13 @@ services:
     volumes:
       - ./loki/config.yml:/etc/loki/local-config.yaml
     healthcheck:
-      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3100/ready || exit 1" ]
+      test: [ "CMD", "/usr/bin/loki", "-version" ]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
     ports:
       - "3100:3100"
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
     networks:
       - aio-network
 
@@ -23,16 +19,15 @@ services:
     image: prom/prometheus:latest
     container_name: aivn-prometheus
     restart: unless-stopped
+    env_file:
+      - .env
     ports:
       - "9090:9090" 
     volumes:
       - ./prometheus:/etc/prometheus
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
+    entrypoint:
+      - "/bin/sh"
+      - "/etc/prometheus/entrypoint.sh"
     networks:
       - aio-network
 
@@ -47,10 +42,19 @@ services:
       - grafana-storage:/var/lib/grafana
     ports:
       - "3000:3000"
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
+    networks:
+      - aio-network
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: aivn-promtail
+    restart: unless-stopped
+    depends_on:
+      - loki
+    command: ["-config.file=/etc/promtail/config.yml"]
+    volumes:
+      - ./promtail/config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - aio-network
 

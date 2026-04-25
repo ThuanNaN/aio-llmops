@@ -1,0 +1,33 @@
+services:
+  trtllm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trtllm
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      CUDA_VISIBLE_DEVICES: ${TRTLLM_DEVICE_ID:-1}
+      NVIDIA_VISIBLE_DEVICES: ${TRTLLM_DEVICE_ID:-1}
+    command: ["sh", "-c", "uvicorn app:app --host 0.0.0.0 --port ${TRTLLM_PORT:-8002}"]
+    ports:
+      - "${TRTLLM_PORT:-8002}:${TRTLLM_PORT:-8002}"
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    networks:
+      - aio-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:${TRTLLM_PORT:-8002}/health >/dev/null"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+
+networks:
+  aio-network:
+    external: true

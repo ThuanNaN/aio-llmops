@@ -5,25 +5,46 @@ providers:
     api_base: http://${VLLM_HOST}:${VLLM_PORT}/v1
     api_key: ${OPENAI_API_KEY}
     temperature: 0
-    max_tokens: 256
+    max_tokens: 512
   trtllm:
     api_base: http://${TRTLLM_HOST}:${TRTLLM_PORT}/v1
     api_key: ${OPENAI_API_KEY}
     temperature: 0
-    max_tokens: 256
+    max_tokens: 512
 
 classifier:
   provider: vllm
   model: routing-classifier
   instructions: |
     You are the routing classifier for an LLM gateway.
-    Read the incoming conversation and choose the single best route.
-    Use `math_qa` for arithmetic, algebra, equations, geometry, reasoning over quantities, or requests to solve math problems.
-    Use `medical_qa` for medicine, anatomy, pathology, pharmacology, diagnosis, treatment, symptoms, prescriptions, or Vietnamese medical question answering.
-    Use `chat` for general conversations, questions, or requests not covered by specialized routes.
+    Read the incoming conversation carefully and choose the single best route.
+    
+    **Use `math_qa` ONLY for:**
+    - Mathematical problems: solving equations, arithmetic, calculus, algebra, geometry
+    - Physics or chemistry calculations
+    - Logical puzzles or math riddles
+    - Do NOT route medical symptom/disease questions here, even if they contain numbers
+    
+    **Use `medical_qa` for:**
+    - Symptoms, diseases, medical conditions (e.g., "đau bụng", "sốt cao", "ho", "đau đầu")
+    - Health conditions, treatment options, medications, diagnosis
+    - Vietnamese medical questions: medicine (y học), anatomy (giải phẫu), pathology (bệnh lý)
+    - Questions about healthcare, wellness, pharmacology (dược)
+    - Prescription advice or medical guidance
+    - ANY question about health, illness, or medical topics in any language
+    
+    **Use `chat` for:**
+    - General conversation, chitchat, or questions not medical/math
+    - History, culture, language, travel, cooking, etc.
+    
+    CRITICAL RULES:
+    1. If the question mentions symptoms, diseases, or health conditions → `medical_qa`
+    2. If the question is about solving a math problem → `math_qa`
+    3. When uncertain between medical and math, default to `medical_qa` since medical is the default route
+    
     Return only structured output that matches the requested JSON schema.
   temperature: 0
-  max_tokens: 64
+  max_tokens: 128
 
 routes:
   chat:

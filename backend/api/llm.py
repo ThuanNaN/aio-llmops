@@ -1,5 +1,6 @@
 import hashlib
 import json
+import re
 from dataclasses import asdict, dataclass
 from functools import lru_cache
 from time import perf_counter
@@ -94,6 +95,39 @@ def _flatten_messages(messages: Sequence[dict[str, str]]) -> str:
     for message in _normalize_messages(messages):
         lines.append(f"{message['role']}: {message['content']}")
     return "\n".join(lines)
+
+
+def _strip_markdown_fence(value: str) -> str:
+    cleaned = value.strip()
+    if cleaned.startswith("```") and cleaned.endswith("```"):
+        lines = cleaned.splitlines()
+        if len(lines) >= 2:
+            return "\n".join(lines[1:-1]).strip()
+    return cleaned
+
+
+def _extract_route_from_output(raw_output: str, allowed_routes: set[str]) -> str | None:
+    cleaned = _strip_markdown_fence(raw_output)
+    if not cleaned:
+        return None
+
+    # Prefer JSON route extraction when the model returns JSON-like content.
+    try:
+        parsed = json.loads(cleaned)
+        if isinstance(parsed, dict):
+            route_value = parsed.get("route")
+            if isinstance(route_value, str) and route_value in allowed_routes:
+                return route_value
+    except Exception:
+        pass
+
+    # Common fallback: model returns just the route token or a sentence containing it.
+    for route_name in sorted(allowed_routes, key=len, reverse=True):
+        if cleaned == route_name:
+            return route_name
+        if re.search(rf"\b{re.escape(route_name)}\b", cleaned):
+            return route_name
+    return None
 
 
 @lru_cache(maxsize=32)
@@ -217,9 +251,16 @@ class LLMGateway:
         classifier_config = self.routing_config.classifier
         provider = self.routing_config.providers[classifier_config.provider]
         eligible_routes = self._eligible_routes()
+        route_names = set(eligible_routes.keys())
         route_definitions = "\n".join(
             f"- {route_name}: {route_config.description}"
             for route_name, route_config in eligible_routes.items()
+        )
+        chat_model = self._get_model(
+            provider=provider,
+            model=classifier_config.model,
+            temperature=classifier_config.temperature,
+            max_tokens=classifier_config.max_tokens,
         )
 
         prompt = ChatPromptTemplate.from_messages(
@@ -231,12 +272,7 @@ class LLMGateway:
                 ),
             ]
         )
-        chain = prompt | self._get_model(
-            provider=provider,
-            model=classifier_config.model,
-            temperature=classifier_config.temperature,
-            max_tokens=classifier_config.max_tokens,
-        ) | parser
+        chain = prompt | chat_model | parser
 
         try:
             decision = chain.invoke(
@@ -247,6 +283,34 @@ class LLMGateway:
                 }
             )
         except Exception as exc:
+            raw_prompt = ChatPromptTemplate.from_messages(
+                [
+                    ("system", classifier_config.instructions),
+                    (
+                        "human",
+                        "Available routes:\n{route_definitions}\n\nConversation:\n{conversation}\n\n"
+                        "Return ONLY one route name from this list: {route_list}. "
+                        "No JSON, no explanation.",
+                    ),
+                ]
+            )
+            try:
+                raw_response = (raw_prompt | chat_model).invoke(
+                    {
+                        "route_definitions": route_definitions,
+                        "conversation": _flatten_messages(messages),
+                        "route_list": ", ".join(sorted(route_names)),
+                    }
+                )
+                parsed_route = _extract_route_from_output(str(raw_response.content), route_names)
+                if parsed_route is not None:
+                    return RouteDecision(
+                        route=parsed_route,
+                        reason=f"Classifier fallback recovered from {exc.__class__.__name__}",
+                    )
+            except Exception:
+                pass
+
             return RouteDecision(
                 route=self.routing_config.default_route,
                 reason=f"Classifier fallback after error: {exc.__class__.__name__}",

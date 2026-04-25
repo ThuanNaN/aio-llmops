@@ -126,9 +126,85 @@ An end-to-end LLMOps stack for routed math and medical question answering with m
 - The backend adds an exact-match Redis cache for classifier decisions and repeated responses
 - For model or LoRA rollouts, bump `CACHE_NAMESPACE` on every backend replica to invalidate old entries without changing route names
 
-## Benchmark
+## Evaluation
+
+Evaluation scripts use [LangSmith](https://smith.langchain.com/) to seed datasets from HuggingFace and score responses against reference answers. Start the gateway before running any eval.
+
+### Math QA
+
+Loads samples from `TIGER-Lab/MathInstruct`, creates or reuses a LangSmith dataset, calls `/v1/math-qa`, and scores results.
+
+```bash
+# Required env vars (can be set in backend/.env)
+# LANGSMITH_API_KEY, OPENAI_API_KEY, BACKEND_EVAL_URL
+# Optional overrides:
+# MATH_EVAL_DATASET_NAME  (default: "Math QA Eval Dataset")
+# MATH_EVAL_NUM_SAMPLES   (default: 50)
+
+python backend/evals/eval_math_qa.py
+```
+
+### Medical QA
+
+Loads samples from `hungnm/vietnamese-medical-qa`, creates or reuses a LangSmith dataset, calls `/v1/medical-qa`, and scores results.
+
+```bash
+# Required env vars:
+# LANGSMITH_API_KEY, OPENAI_API_KEY, BACKEND_EVAL_URL
+# Optional overrides:
+# MED_EVAL_DATASET_NAME   (default: "Medical QA Eval Dataset")
+# MED_EVAL_NUM_SAMPLES    (default: 50)
+
+python backend/evals/eval_med_qa.py
+```
+
+Traces and evaluation results are viewable in the LangSmith project set by `LANGSMITH_PROJECT`.
+
+## Benchmarking
+
+Benchmarks measure serving throughput and latency using a ShareGPT conversation dataset.
+
+### Download the dataset
+
+```bash
+wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json \
+     -P benchmarks/
+```
+
+### Online serving throughput
+
+Runs concurrent requests against the gateway (or any OpenAI-compatible endpoint) and reports request throughput, output throughput, TTFT, TPOT, and ITL percentiles.
 
 ```bash
 export OPENAI_API_KEY=<your gateway api key>
 make bench_serving
+# Equivalent to:
+# python benchmarks/benchmark_serving.py \
+#   --model meta-llama/Llama-3.2-1B-Instruct \
+#   --tokenizer meta-llama/Llama-3.2-1B-Instruct \
+#   --endpoint /v1/completions \
+#   --dataset-name sharegpt \
+#   --dataset-path benchmarks/ShareGPT_V3_unfiltered_cleaned_split.json \
+#   --request-rate 10.0 \
+#   --max-concurrency 5 \
+#   --result-dir ./benchmarks/results --save-result --save-detailed
 ```
+
+### Prefix caching
+
+Measures the KV cache hit rate and latency improvement when vLLM prefix caching is enabled.
+
+```bash
+make benchmark_prefix_caching
+# Equivalent to:
+# python benchmarks/benchmark_prefix_caching.py \
+#   --model meta-llama/Llama-3.2-1B-Instruct \
+#   --tokenizer meta-llama/Llama-3.2-1B-Instruct \
+#   --dataset-path benchmarks/ShareGPT_V3_unfiltered_cleaned_split.json \
+#   --enable-prefix-caching \
+#   --num-prompts 20 \
+#   --repeat-count 5 \
+#   --input-length-range 128:256
+```
+
+Results are written to `benchmarks/results/` as JSON files.

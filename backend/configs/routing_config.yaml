@@ -14,7 +14,7 @@ providers:
 
 classifier:
   provider: vllm
-  model: route-llm
+  model: routing-classifier
   instructions: |
     You are the routing classifier for an LLM gateway.
     Read the incoming conversation and choose the single best route.
